@@ -1,14 +1,14 @@
-import express from "express";
-import { orderRoute } from "./route/order.route.js";
+import express from 'express';
+import { orderRoute } from './route/order.route.js';
 function startServer() {
   const app = express();
 
   app.use(express.json());
 
-  app.use("/api/order", orderRoute)
-  app.listen(3000, () => {
-    console.log("Ordering service running at localhost:3001");
+  app.use('/api/order', orderRoute);
+  app.listen(3001, () => {
+    console.log('Ordering service running at localhost:3001');
   });
 }
 
-startServer()
+startServer();

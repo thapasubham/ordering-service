@@ -4,11 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "",
-    "start": "",
-    "dev": "tsx watch src/index.ts",
-    "format": "prettier --write \"src/**/*.{ts,js,tsx,jsx}\""
+    "build": "tsc",
+    "start": "tsc && node dist/index.js",
+    "dev": "tsx watch src/index.ts"
   },
   "keywords": [],
   "author": "",
@@ -23,6 +21,7 @@
   },
   "devDependencies": {
     "@types/node": "^25.0.3",
-    "tsx": "^4.21.0"
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
   }
 }
