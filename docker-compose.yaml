@@ -1,4 +1,4 @@
-
+version: "3.9"
 
 services:
   rabbitmq:
@@ -10,18 +10,29 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: admin
       RABBITMQ_DEFAULT_PASS: admin123
+    restart: unless-stopped
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
     networks:
       - microservice
 
-  ordering-service:
-    build: ./order_service
-    container_name: ordering-service
-    ports:
-      - "3001:3001"
-    depends_on:
-      - rabbitmq
+  redis:
+    image: redis/redis-stack
+    container_name: order-redis
+    ports: 
+      - "6379:6379"
+      - "8001:8001"
+    environment:
+      REDIS_ARGS: "--requirepass coolPasscode"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
     networks:
       - microservice
+
+volumes:
+  redis-data:
+  rabbitmq-data:
 
 networks:
   microservice:
