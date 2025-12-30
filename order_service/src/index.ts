@@ -6,7 +6,7 @@ async function startServer() {
   const app = express();
 
   app.use(express.json());
-  rabbitclient.connect();
+  await rabbitclient.connect();
   app.use('/api/order', orderRoute);
   await startOrderConsumer();
   app.use((err: Error, req: Request, res: Response, _next: NextFunction) => {

@@ -13,6 +13,7 @@ export class OrderService {
   }
 
   async CreateOrder(order: Order) {
-    publish<Order>('create.order', order);
+    await publish<Order>('create.order', order);
+    return order;
   }
 }
