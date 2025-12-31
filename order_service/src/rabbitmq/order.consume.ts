@@ -4,7 +4,7 @@ import { consume } from './consume.js';
 
 const orderRepo = new OrderRepository();
 
-export async function startOrderConsumer() {
+async function startOrderConsumer() {
   await consume('create.order', async (msg) => {
     const order: Order = JSON.parse(msg.toString());
 
@@ -13,3 +13,16 @@ export async function startOrderConsumer() {
     console.log('Order saved:', order.id);
   });
 }
+
+async function startPaymentConsumer() {
+  await consume('pay.order', async (msg) => {
+    const order: Order = JSON.parse(msg.toString());
+    await orderRepo.UpdateOrder(order);
+    console.log('order update:', order);
+  });
+}
+
+export const consumers = () => {
+  startOrderConsumer();
+  startPaymentConsumer();
+};

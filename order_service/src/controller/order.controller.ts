@@ -22,4 +22,10 @@ export class OrderController {
     const result = await this.orderService.CreateOrder(order);
     res.send(result);
   }
+
+  async PayOrder(req: Request, res: Response) {
+    const { id } = req.params;
+    const result = await this.orderService.PayOrder(id as string);
+    res.send(result);
+  }
 }
