@@ -10,6 +10,15 @@ class RedisClient {
       username: 'default',
     });
   }
+  async healthCheck(): Promise<boolean> {
+    try {
+      const pong = await this.client.ping();
+      return pong === 'PONG';
+    } catch (err: unknown) {
+      console.error('Redis health check failed:', err);
+      return false;
+    }
+  }
   async add<T>(key: string, value: T) {
     return await this.client.set(key, JSON.stringify(value));
   }
