@@ -2,7 +2,7 @@
 
 A microservices-based coffee ordering system built with Node.js, TypeScript, Express, RabbitMQ, and Redis. The system consists of multiple independent services that communicate via message queues.
 
-## 🏗️ Architecture
+## Architecture
 
 This is a **true microservices architecture** with multiple independent services:
 
@@ -54,7 +54,7 @@ Payment Processing:
 Payment Service → Processes payment → RabbitMQ (payment.success/failed) → Order Service (updates order status)
 ```
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 - **Runtime**: Node.js
 - **Language**: TypeScript
@@ -63,13 +63,13 @@ Payment Service → Processes payment → RabbitMQ (payment.success/failed) → 
 - **Database**: Redis
 - **Containerization**: Docker & Docker Compose
 
-## 📋 Prerequisites
+## Prerequisites
 
 - Node.js (v18 or higher)
 - Docker & Docker Compose
 - npm or yarn
 
-## 🚀 Getting Started
+## Getting Started
 
 ### 1. Clone the Repository
 
@@ -101,7 +101,7 @@ This will start:
 - **RabbitMQ** on `localhost:5672` (Management UI: `http://localhost:15672`)
 - **Redis** on `localhost:6379` (RedisInsight: `http://localhost:8001`)
 
-> **⚠️ Security Note:** Change default credentials in production environments!
+> **Security Note:** Change default credentials in production environments!
 
 ### 3. Install Dependencies
 
@@ -188,7 +188,7 @@ Services will run on:
 - Order Service: `http://localhost:3001`
 - Payment Service: `http://localhost:3002`
 
-## 📡 API Endpoints
+## API Endpoints
 
 ### Order Service (`localhost:3001`)
 
@@ -305,7 +305,7 @@ GET /api/payment
 GET /api/payment/order/:orderId
 ```
 
-## 🔄 Message Queue Flow
+## Message Queue Flow
 
 ### Order Creation Flow
 
@@ -344,7 +344,7 @@ GET /api/payment/order/:orderId
 - `payment.success` - Successful payment events (Payment Service → Order Service)
 - `payment.failed` - Failed payment events (Payment Service → Order Service)
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 coffee_ordering/
@@ -399,16 +399,16 @@ coffee_ordering/
 └── README.md
 ```
 
-## ✨ Features
+## Features
 
-- ✅ **Asynchronous Processing**: Orders processed via RabbitMQ message queue
-- ✅ **Dead Letter Queue (DLQ)**: Failed messages routed to DLQ for manual inspection
-- ✅ **Error Handling**: Global error handler with consistent error responses
-- ✅ **Input Validation**: Request validation before processing
-- ✅ **Message Persistence**: Messages survive broker restarts
-- ✅ **Graceful Shutdown**: Proper cleanup on application termination
-- ✅ **Health Checks**: Service health monitoring endpoint
-- ✅ **Type Safety**: Full TypeScript implementation
+- **Asynchronous Processing**: Orders processed via RabbitMQ message queue
+- **Dead Letter Queue (DLQ)**: Failed messages routed to DLQ for manual inspection
+- **Error Handling**: Global error handler with consistent error responses
+- **Input Validation**: Request validation before processing
+- **Message Persistence**: Messages survive broker restarts
+- **Graceful Shutdown**: Proper cleanup on application termination
+- **Health Checks**: Service health monitoring endpoint
+- **Type Safety**: Full TypeScript implementation
 
 ## 🔧 Configuration
 
@@ -424,7 +424,7 @@ coffee_ordering/
 | `PORT`           | Application port        | `3001`                                 |
 | `NODE_ENV`       | Environment mode        | `development`                          |
 
-## 🐛 Error Handling
+## Error Handling
 
 The application uses a global error handler that provides consistent error responses:
 
@@ -441,14 +441,14 @@ The application uses a global error handler that provides consistent error respo
 - `404` - Not Found (resource not found)
 - `500` - Internal Server Error
 
-## 📦 Scripts
+## Scripts
 
 - `npm run dev` - Start development server with hot reload
 - `npm run build` - Compile TypeScript to JavaScript
 - `npm start` - Build and start production server
 - `npm run lint` - Run ESLint (from root directory)
 
-## 🔍 Monitoring
+## Monitoring
 
 ### RabbitMQ Management UI
 
@@ -466,7 +466,7 @@ Access at `http://localhost:8001`
 - Monitor Redis performance
 - Execute Redis commands
 
-## 🧪 Testing
+## Testing
 
 Example API calls using cURL:
 
@@ -498,7 +498,7 @@ curl http://localhost:3001/health
 curl http://localhost:3002/health
 ```
 
-## 🚨 Troubleshooting
+## Troubleshooting
 
 ### RabbitMQ Connection Failed
 
@@ -518,17 +518,17 @@ curl http://localhost:3002/health
 - Verify consumers are running (check logs)
 - Inspect Dead Letter Queue for failed messages
 
-## 📝 License
+## License
 
 ISC
 
-## 👥 Contributing
+## Contributing
 
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
 4. Submit a pull request
 
-## 📞 Support
+## Support
 
 For issues and questions, please open an issue on the repository.
