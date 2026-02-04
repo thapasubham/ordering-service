@@ -1,8 +1,8 @@
 import express, { Request, Response } from 'express';
 import dotenv from 'dotenv';
-import { orderRoute } from './route/order.route.js';
+import { paymentRoute } from './route/payment.route.js';
 import { rabbitclient } from './client/rabbitmq.client.js';
-import { consumers } from './rabbitmq/order.consume.js';
+import { consumers } from './rabbitmq/payment.consume.js';
 import { redisClient } from './client/redis.client.js';
 
 dotenv.config();
@@ -10,7 +10,7 @@ dotenv.config();
 async function startServer() {
   try {
     const app = express();
-    const PORT = process.env.PORT || 3001;
+    const PORT = process.env.PORT || 3002;
 
     app.use(express.json());
 
@@ -27,14 +27,14 @@ async function startServer() {
       console.error('Failed to start consumers:', error);
     }
 
-    app.use('/api/order', orderRoute);
+    app.use('/api/payment', paymentRoute);
 
     app.get('/health', async (req: Request, res: Response) => {
       const rabbitHealth = await rabbitclient.checkConnection();
       const redisHealth = await redisClient.healthCheck();
       res.status(200).json({
         status: 'ok',
-        service: 'order-service',
+        service: 'payment-service',
         rabbitHealth: rabbitHealth ? 'Ok' : 'Degraded',
         redisHealth: redisHealth ? 'Ok' : 'Degraded',
       });
@@ -48,7 +48,7 @@ async function startServer() {
     });
 
     app.listen(PORT, () => {
-      console.log(`Ordering service running at localhost:${PORT}`);
+      console.log(`Payment service running at localhost:${PORT}`);
     });
 
     process.on('SIGTERM', async () => {

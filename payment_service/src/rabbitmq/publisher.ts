@@ -7,8 +7,6 @@ export async function publish<T>(
   try {
     const channel = await rabbitclient.getChannel();
 
-    // Assert queue with DLX settings (same as consumers use)
-    // This ensures consistency whether publisher or consumer starts first
     const dlxName = `${queue_name}.dlx`;
     const routingKey = `${queue_name}.dlq`;
 
@@ -25,9 +23,6 @@ export async function publish<T>(
         },
       });
     } catch (error: unknown) {
-      // If queue already exists with same settings, that's fine
-      // If it exists with different settings, we'll get PRECONDITION_FAILED
-      // In that case, just try to send (queue exists, just different config)
       if (
         typeof error === 'object' &&
         error !== null &&
@@ -59,14 +54,14 @@ export async function publish<T>(
           ? String((value as { orderId: unknown }).orderId)
           : 'N/A';
 
-    console.log(`✓ Published to ${queue_name}`, {
+    console.log(`Published to ${queue_name}`, {
       queue: queue_name,
       messageId,
     });
 
     return true;
   } catch (error) {
-    console.error(`✗ Failed to publish to ${queue_name}:`, error);
+    console.error(`Failed to publish to ${queue_name}:`, error);
     throw error;
   }
 }

@@ -46,7 +46,6 @@ class RedisClient {
         return result ? JSON.parse(result) : null;
       })
     );
-    console.log(data);
     return data.filter((item) => item !== null);
   }
 
