@@ -4,16 +4,17 @@ import { orderRoute } from './route/order.route.js';
 import { rabbitclient } from './client/rabbitmq.client.js';
 import { consumers } from './rabbitmq/order.consume.js';
 import { redisClient } from './client/redis.client.js';
-
+import cors from 'cors';
 dotenv.config();
 
 async function startServer() {
   try {
     const app = express();
     const PORT = process.env.PORT || 3001;
-
+    const API_GATEWAY_URL = process.env.API_GATEWAY || 'http://localhost:3067';
     app.use(express.json());
 
+    app.use(cors({ origin: API_GATEWAY_URL, methods: '*' }));
     try {
       await rabbitclient.connect();
     } catch {

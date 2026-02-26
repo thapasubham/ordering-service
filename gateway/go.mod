@@ -1,3 +1,3 @@
-module github.com/thapasubham/orering-service/gateway
+module github.com/thapasubham/ordering-service/gateway
 
 go 1.25.6

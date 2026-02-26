@@ -11,7 +11,7 @@ import (
 func main() {
 	mux := http.NewServeMux()
 
-	mux.Handle("/users/", proxy("http://localhost:3001", "/users"))
+	mux.Handle("/order/", proxy("http://localhost:3001", "/orders"))
 	mux.Handle("/payment/", proxy("http://localhost:3002", "/payment"))
 
 	log.Fatal(http.ListenAndServe(":3067", loggingMiddleware(mux)))
