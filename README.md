@@ -11,10 +11,10 @@ This is a **true microservices architecture** with multiple independent services
 │  Order Service   │         │ Payment Service  │
 │   Port: 3001     │         │   Port: 3002     │
 └────────┬─────────┘         └────────┬─────────┘
-         │                              │
-         │  (publishes events)         │  (publishes events)
-         │                              │
-         └──────────┬───────────────────┘
+         │                            │
+         │  (publishes events)        │  (publishes events)
+         │                            │
+         └──────────┬─────────────────┘
                     │
          ┌──────────▼──────────┐
          │      RabbitMQ       │  Message Queue
