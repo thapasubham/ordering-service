@@ -22,7 +22,7 @@ export class PaymentRepository {
   }
 
   async CreatePayment(payment: Payment) {
-    payment.status = 'pending';
+    payment.status = payment.status || 'pending';
     payment.createdAt = new Date().toISOString();
     payment.updatedAt = new Date().toISOString();
     const key = `${paymentPrefix}:${payment.id}`;

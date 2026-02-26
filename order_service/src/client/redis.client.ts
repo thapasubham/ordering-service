@@ -39,14 +39,28 @@ class RedisClient {
     return await this.client.set(key, JSON.stringify(value));
   }
   async get(key: string) {
-    const keys = await this.client.keys(`${key}:*`);
+    let cursor = '0';
+    const keys: string[] = [];
+    const pattern = `${key}:*`;
+
+    do {
+      const [nextCursor, foundKeys] = await this.client.scan(
+        cursor,
+        'MATCH',
+        pattern,
+        'COUNT',
+        100
+      );
+      cursor = nextCursor;
+      keys.push(...foundKeys);
+    } while (cursor !== '0');
+
     const data = await Promise.all(
-      keys.map(async (key: string) => {
-        const result = await this.client.get(key);
+      keys.map(async (k: string) => {
+        const result = await this.client.get(k);
         return result ? JSON.parse(result) : null;
       })
     );
-    console.log(data);
     return data.filter((item) => item !== null);
   }
 

@@ -5,6 +5,8 @@ import { rabbitclient } from './client/rabbitmq.client.js';
 import { consumers } from './rabbitmq/order.consume.js';
 import { redisClient } from './client/redis.client.js';
 import cors from 'cors';
+import cluster from 'cluster';
+import os from 'os';
 dotenv.config();
 
 async function startServer() {
@@ -69,4 +71,28 @@ async function startServer() {
   }
 }
 
-startServer();
+function server() {
+  const numCPUs = os.cpus().length;
+
+  if (cluster.isPrimary) {
+    console.log(`Primary process ${process.pid} is running`);
+
+    for (let i = 0; i < numCPUs; i++) {
+      cluster.fork();
+    }
+    cluster.on('exit', (worker, code, signal) => {
+      console.log(
+        `Worker ${worker} exited with code ${code} and  signal ${signal}`
+      );
+      cluster.fork();
+    });
+  }
+  if (cluster.isWorker) {
+    startServer();
+    console.log(
+      `Worker process ${process.pid} started and listening on port 3000`
+    );
+  }
+}
+
+server();

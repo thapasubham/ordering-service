@@ -1,9 +1,7 @@
-import { OrderRepository } from '../repository/order.repository.js';
 import { OrderService } from '../service/order.service.js';
 import { Order } from '../types/order.types.js';
 import { consume } from './consume.js';
 
-const orderRepo = new OrderRepository();
 const orderService = new OrderService();
 
 async function startOrderConsumer() {
@@ -21,8 +19,7 @@ async function startOrderConsumer() {
         throw new Error(`Invalid order data: missing required fields`);
       }
 
-      await orderRepo.CreateOrder(order);
-      console.log(`Order saved: ${order.id}`);
+      console.log(`Order message processed: ${order.id}`);
     });
   } catch (error) {
     console.error('Failed to start create.order consumer:', error);

@@ -24,7 +24,7 @@ export async function consume(
       },
     });
 
-    console.log(`✓ Consumer listening on queue: ${queue_name}`);
+    console.log(`Consumer listening on queue: ${queue_name}`);
 
     channel.consume(
       queue_name,
@@ -34,19 +34,16 @@ export async function consume(
         try {
           await OnMessage(msg.content);
           channel.ack(msg);
-          console.log(`✓ Message processed from ${queue_name}`);
+          console.log(`Message processed from ${queue_name}`);
         } catch (error) {
-          console.error(
-            `✗ Error processing message from ${queue_name}:`,
-            error
-          );
+          console.error(`Error processing message from ${queue_name}:`, error);
           channel.nack(msg, false, false);
         }
       },
       { noAck: false }
     );
   } catch (error) {
-    console.error(`✗ Failed to setup consumer for ${queue_name}:`, error);
+    console.error(`Failed to setup consumer for ${queue_name}:`, error);
     throw error;
   }
 }

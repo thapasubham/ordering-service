@@ -10,7 +10,7 @@ export class OrderController {
 
   async GetOrder(req: Request, res: Response) {
     const result = await this.orderService.GetOrder();
-    res.send(result);
+    res.send(result).status(200);
   }
   async CreateOrder(req: Request, res: Response) {
     const order: Order = req.body;
@@ -20,7 +20,7 @@ export class OrderController {
     }
     order.id = nanoid();
     const result = await this.orderService.CreateOrder(order);
-    res.send(result);
+    res.send(result).status(200);
   }
 
   async PayOrder(req: Request, res: Response) {
@@ -55,6 +55,25 @@ export class OrderController {
 
       res.status(500).json({
         error: 'Internal server error',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
+
+  async GetOrderbyID(req: Request, res: Response) {
+    try {
+      const { orderId } = req.params;
+      if (!orderId) {
+        return res.status(400).json({
+          error: 'Bad request',
+          message: 'Order ID is required',
+        });
+      }
+      const order: Order = await this.orderService.GetOrderByID(orderId);
+      res.send(order).status(200);
+    } catch (error) {
+      res.send(404).json({
+        error: 'Not found.',
         message: error instanceof Error ? error.message : 'Unknown error',
       });
     }

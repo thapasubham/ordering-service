@@ -8,13 +8,17 @@ export class OrderService {
   constructor() {
     this.orderRepo = new OrderRepository();
   }
-
+  async GetOrderByID(id: string): Promise<Order> {
+    const result = await this.orderRepo.GetOrderById(id);
+    return result;
+  }
   async GetOrder() {
     const result = await this.orderRepo.GetOrder();
     return result;
   }
 
   async CreateOrder(order: Order) {
+    await this.orderRepo.CreateOrder(order);
     await publish<Order>('create.order', order);
     return order;
   }
