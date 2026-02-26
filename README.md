@@ -1,20 +1,26 @@
 # Coffee Ordering Microservices
 
-A microservices-based coffee ordering system built with Node.js, TypeScript, Express, RabbitMQ, and Redis. The system consists of multiple independent services that communicate via message queues.
+A simple microservices-based coffee ordering system built with Node.js, TypeScript, Express, Go (Gateway), RabbitMQ, and Redis. The system consists of multiple independent services that communicate via message queues, with a central API Gateway for routing.
 
 ## Architecture
 
-This is a **true microservices architecture** with multiple independent services:
+This is a true microservices architecture with an API Gateway as the entry point:
 
 ```
-┌──────────────────┐         ┌──────────────────┐
-│  Order Service   │         │ Payment Service  │
-│   Port: 3001     │         │   Port: 3002     │
-└────────┬─────────┘         └────────┬─────────┘
-         │                            │
-         │  (publishes events)        │  (publishes events)
-         │                            │
-         └──────────┬─────────────────┘
+          ┌──────────────────┐
+          │   API Gateway    │ (Port: 3067)
+          └────────┬─────────┘
+                   │
+         ┌─────────┴─────────┐
+         ▼                   ▼
+┌──────────────────┐   ┌──────────────────┐
+│  Order Service   │   │ Payment Service  │
+│   Port: 3001     │   │   Port: 3002     │
+└────────┬─────────┘   └────────┬─────────┘
+         │                      │
+         │ (publishes events)   │ (publishes events)
+         │                      │
+         └──────────┬───────────┘
                     │
          ┌──────────▼──────────┐
          │      RabbitMQ       │  Message Queue
@@ -60,6 +66,8 @@ PUT /order/api/order/pay/:id → API Gateway → Order Service → RabbitMQ (pay
 Payment Processing:
 Payment Service → Processes payment → RabbitMQ (payment.success/failed) → Order Service (updates order status)
 ```
+
+**Note:** The Gateway maps `/order/` to Order Service and `/payment/` to Payment Service.
 
 ## Tech Stack
 
@@ -109,7 +117,7 @@ This will start:
 - **RabbitMQ** on `localhost:5672` (Management UI: `http://localhost:15672`)
 - **Redis** on `localhost:6379` (RedisInsight: `http://localhost:8001`)
 
-> **Security Note:** Change default credentials in production environments!
+**Security Note:** Change default credentials in production environments!
 
 ### 3. Install Dependencies & Build
 
@@ -191,7 +199,7 @@ Services will run on:
 - Order Service: `http://localhost:3001`
 - Payment Service: `http://localhost:3002`
 
-## API Endpoints
+## API Endpoints (via Gateway)
 
 All requests should be routed through the API Gateway on port `3067`.
 
@@ -230,89 +238,7 @@ All requests should be routed through the API Gateway on port `3067`.
 
 #### Process Payment
 
-```http
-POST /api/payment
-Content-Type: application/json
-```
-
-**Request Body:**
-
-```json
-{
-  "orderId": "order_123",
-  "amount": 4.5,
-  "paymentMethod": "credit_card"
-}
-```
-
-**Response:** `201 Created`
-
-```json
-{
-  "id": "payment_id",
-  "orderId": "order_123",
-  "amount": 4.5,
-  "status": "success",
-  "createdAt": "2024-01-01T10:05:00.000Z"
-}
-```
-
-#### Get Payment
-
-```http
-GET /api/payment/:id
-```
-
-#### Get All Payments
-
-```http
-GET /api/payment
-```
-
-#### Get Payments by Order ID
-
-```http
-GET /api/payment/order/:orderId
-```
-
-## Message Queue Flow
-
-### Order Creation Flow
-
-```
-1. POST /api/order → Order Service
-   ↓
-2. Order Service publishes to 'create.order' queue
-   ↓
-3. Order Service consumer receives message
-   ↓
-4. Order saved to Redis with 'pending' status
-```
-
-### Payment Processing Flow
-
-```
-1. PUT /api/order/pay/:id → Order Service
-   ↓
-2. Order Service publishes to 'pay.order' queue
-   ↓
-3. Payment Service consumer receives payment request
-   ↓
-4. Payment Service processes payment
-   ↓
-5. Payment Service publishes 'payment.success' or 'payment.failed'
-   ↓
-6. Order Service consumer receives payment result
-   ↓
-7. Order Service updates order status in Redis
-```
-
-### RabbitMQ Queues
-
-- `create.order` - Order creation events (Order Service → Order Service)
-- `pay.order` - Payment requests (Order Service → Payment Service)
-- `payment.success` - Successful payment events (Payment Service → Order Service)
-- `payment.failed` - Failed payment events (Payment Service → Order Service)
+`POST /payment/api/payment`
 
 ## Project Structure
 
@@ -348,14 +274,15 @@ coffee_ordering/
 
 ## Features
 
+- **Centralized Entry Point**: All requests routed through a single API Gateway
 - **Asynchronous Processing**: Orders processed via RabbitMQ message queue
 - **Dead Letter Queue (DLQ)**: Failed messages routed to DLQ for manual inspection
 - **Error Handling**: Global error handler with consistent error responses
 - **Input Validation**: Request validation before processing
 - **Message Persistence**: Messages survive broker restarts
 - **Graceful Shutdown**: Proper cleanup on application termination
-- **Health Checks**: Service health monitoring endpoint
-- **Type Safety**: Full TypeScript implementation
+- **Health Checks**: Service health monitoring endpoints
+- **Type Safety**: TypeScript and Go implementation
 
 ## Configuration
 
@@ -370,30 +297,6 @@ coffee_ordering/
 | `REDIS_USERNAME` | Redis username          | `default`                              |
 | `PORT`           | Application port        | `3001` (Order), `3002` (Payment)       |
 | `NODE_ENV`       | Environment mode        | `development`                          |
-
-## Error Handling
-
-The application uses a global error handler that provides consistent error responses:
-
-```json
-{
-  "error": "Bad request",
-  "message": "Missing required fields: price and name"
-}
-```
-
-**Error Status Codes:**
-
-- `400` - Bad Request (validation errors)
-- `404` - Not Found (resource not found)
-- `500` - Internal Server Error
-
-## Scripts
-
-- `npm run dev` - Start development server with hot reload
-- `npm run build` - Compile TypeScript to JavaScript
-- `npm start` - Build and start production server
-- `npm run lint` - Run ESLint (from root directory)
 
 ## Monitoring
 
@@ -458,18 +361,3 @@ curl http://localhost:3067/payment/health
 - Check RabbitMQ Management UI for queue status
 - Verify consumers are running (check logs)
 - Inspect Dead Letter Queue for failed messages
-
-## License
-
-ISC
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Submit a pull request
-
-## Support
-
-For issues and questions, please open an issue on the repository.
