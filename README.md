@@ -29,13 +29,20 @@ This is a **true microservices architecture** with multiple independent services
 
 ### Services
 
-1. **Order Service** (`order_service`)
+1. **API Gateway** (`gateway`)
+   - Entry point for all client requests
+   - Routes requests to Order and Payment services
+   - Handles path prefix stripping
+   - Logs requests via custom middleware
+   - Port: `3067`
+
+2. **Order Service** (`order_service`)
    - Creates and manages orders
    - Publishes payment requests
    - Consumes payment status updates
    - Port: `3001`
 
-2. **Payment Service** (`payment_service`)
+3. **Payment Service** (`payment_service`)
    - Processes payment requests
    - Publishes payment success/failure events
    - Manages payment records
@@ -45,10 +52,10 @@ This is a **true microservices architecture** with multiple independent services
 
 ```
 Order Creation:
-POST /api/order → Order Service → RabbitMQ (create.order) → Order Service (saves to Redis)
+POST /order/api/order → API Gateway → Order Service → RabbitMQ (create.order) → Order Service (saves to Redis)
 
 Payment Request:
-PUT /api/order/pay/:id → Order Service → RabbitMQ (pay.order) → Payment Service
+PUT /order/api/order/pay/:id → API Gateway → Order Service → RabbitMQ (pay.order) → Payment Service
 
 Payment Processing:
 Payment Service → Processes payment → RabbitMQ (payment.success/failed) → Order Service (updates order status)
@@ -56,8 +63,8 @@ Payment Service → Processes payment → RabbitMQ (payment.success/failed) → 
 
 ## Tech Stack
 
-- **Runtime**: Node.js
-- **Language**: TypeScript
+- **Runtime**: Node.js, Go (Gateway)
+- **Language**: TypeScript, Go
 - **Framework**: Express.js
 - **Message Queue**: RabbitMQ
 - **Database**: Redis
@@ -66,6 +73,7 @@ Payment Service → Processes payment → RabbitMQ (payment.success/failed) → 
 ## Prerequisites
 
 - Node.js (v18 or higher)
+- Go (v1.25 or higher)
 - Docker & Docker Compose
 - npm or yarn
 
@@ -103,9 +111,9 @@ This will start:
 
 > **Security Note:** Change default credentials in production environments!
 
-### 3. Install Dependencies
+### 3. Install Dependencies & Build
 
-Install dependencies for both services:
+**Node Services:**
 
 ```bash
 # Order Service
@@ -119,9 +127,16 @@ npm install
 cd ..
 ```
 
+**API Gateway:**
+
+```bash
+cd gateway
+go mod download
+```
+
 ### 4. Configure Environment Variables
 
-Create `.env` files for each service:
+Create `.env` files for Node services:
 
 **Order Service** (`order_service/.env`):
 
@@ -149,71 +164,50 @@ NODE_ENV=development
 
 ### 5. Run the Services
 
-**Development mode:**
+Terminal 1 - API Gateway:
 
-Terminal 1 - Order Service:
+```bash
+cd gateway
+go run main.go
+```
+
+Terminal 2 - Order Service:
 
 ```bash
 cd order_service
 npm run dev
 ```
 
-Terminal 2 - Payment Service:
+Terminal 3 - Payment Service:
 
 ```bash
 cd payment_service
 npm run dev
-```
-
-**Production mode:**
-
-Order Service:
-
-```bash
-cd order_service
-npm run build
-npm start
-```
-
-Payment Service:
-
-```bash
-cd payment_service
-npm run build
-npm start
 ```
 
 Services will run on:
 
+- API Gateway: `http://localhost:3067`
 - Order Service: `http://localhost:3001`
 - Payment Service: `http://localhost:3002`
 
 ## API Endpoints
 
-### Order Service (`localhost:3001`)
+All requests should be routed through the API Gateway on port `3067`.
+
+### Order Service (Prefix: `/order/`)
 
 #### Health Check
 
-```http
-GET /health
-```
-
-Returns service health status.
+`GET /order/health`
 
 #### Get All Orders
 
-```http
-GET /api/order
-```
-
-Retrieves all orders from Redis.
+`GET /order/api/order`
 
 #### Create Order
 
-```http
-POST /api/order
-Content-Type: application/json
-```
+`POST /order/api/order`
 
 **Request Body:**
 
@@ -224,39 +218,15 @@ Content-Type: application/json
 }
 ```
 
-**Response:** `201 Created`
-
-```json
-{
-  "id": "generated_id",
-  "name": "Cappuccino",
-  "price": 4.5,
-  "Status": "pending"
-}
-```
-
 #### Request Payment
 
-```http
-PUT /api/order/pay/:id
-```
+`PUT /order/api/order/pay/:id`
 
-**Response:** `200 OK`
-
-```json
-{
-  "message": "Payment request sent",
-  "orderId": "order_123"
-}
-```
-
-### Payment Service (`localhost:3002`)
+### Payment Service (Prefix: `/payment/`)
 
 #### Health Check
 
-```http
-GET /health
-```
+`GET /payment/health`
 
 #### Process Payment
 
@@ -349,53 +319,30 @@ GET /api/payment/order/:orderId
 ```
 coffee_ordering/
 ├── docker-compose.yaml          # Infrastructure services
-├── docker-compose.example.yaml  # Example docker-compose config
-├── order_service/               # Order microservice
+├── gateway/                     # API Gateway (Go)
+│   ├── cmd/                     # Proxy and logging logic
+│   ├── main.go                  # Entry point
+│   └── go.mod
+├── order_service/               # Order microservice (Node.js)
 │   ├── src/
 │   │   ├── client/              # Infrastructure clients
-│   │   │   ├── rabbitmq.client.ts
-│   │   │   └── redis.client.ts
 │   │   ├── controller/          # Request handlers
-│   │   │   └── order.controller.ts
 │   │   ├── rabbitmq/            # Message queue logic
-│   │   │   ├── consume.ts
-│   │   │   ├── order.consume.ts
-│   │   │   └── publisher.ts
 │   │   ├── repository/          # Data access layer
-│   │   │   └── order.repository.ts
 │   │   ├── route/               # Route definitions
-│   │   │   └── order.route.ts
 │   │   ├── service/             # Business logic
-│   │   │   └── order.service.ts
-│   │   ├── types/               # TypeScript types
-│   │   │   └── order.types.ts
-│   │   └── index.ts             # Application entry point
-│   ├── package.json
-│   ├── tsconfig.json
-│   └── .env.example
-├── payment_service/             # Payment microservice
+│   │   └── index.ts             # Entry point
+│   └── package.json
+├── payment_service/             # Payment microservice (Node.js)
 │   ├── src/
 │   │   ├── client/              # Infrastructure clients
-│   │   │   ├── rabbitmq.client.ts
-│   │   │   └── redis.client.ts
 │   │   ├── controller/          # Request handlers
-│   │   │   └── payment.controller.ts
 │   │   ├── rabbitmq/            # Message queue logic
-│   │   │   ├── consume.ts
-│   │   │   ├── payment.consume.ts
-│   │   │   └── publisher.ts
 │   │   ├── repository/          # Data access layer
-│   │   │   └── payment.repository.ts
 │   │   ├── route/               # Route definitions
-│   │   │   └── payment.route.ts
 │   │   ├── service/             # Business logic
-│   │   │   └── payment.service.ts
-│   │   ├── types/               # TypeScript types
-│   │   │   └── payment.types.ts
-│   │   └── index.ts             # Application entry point
-│   ├── package.json
-│   ├── tsconfig.json
-│   └── .env.example
+│   │   └── index.ts             # Entry point
+│   └── package.json
 └── README.md
 ```
 
@@ -410,9 +357,9 @@ coffee_ordering/
 - **Health Checks**: Service health monitoring endpoint
 - **Type Safety**: Full TypeScript implementation
 
-## 🔧 Configuration
+## Configuration
 
-### Environment Variables
+### Environment Variables (Node Services)
 
 | Variable         | Description             | Default                                |
 | ---------------- | ----------------------- | -------------------------------------- |
@@ -421,7 +368,7 @@ coffee_ordering/
 | `REDIS_PORT`     | Redis port              | `6379`                                 |
 | `REDIS_PASSWORD` | Redis password          | `coolPasscode`                         |
 | `REDIS_USERNAME` | Redis username          | `default`                              |
-| `PORT`           | Application port        | `3001`                                 |
+| `PORT`           | Application port        | `3001` (Order), `3002` (Payment)       |
 | `NODE_ENV`       | Environment mode        | `development`                          |
 
 ## Error Handling
@@ -460,7 +407,7 @@ Access at `http://localhost:15672`
 
 ### RedisInsight
 
-Access at `http://localhost:8001`
+Access at `http://localhost:8067`
 
 - View stored orders
 - Monitor Redis performance
@@ -468,34 +415,28 @@ Access at `http://localhost:8001`
 
 ## Testing
 
-Example API calls using cURL:
+Example API calls using cURL (through Gateway):
 
 ```bash
 # Order Service - Create an order
-curl -X POST http://localhost:3001/api/order \
+curl -X POST http://localhost:3067/order/api/order \
   -H "Content-Type: application/json" \
   -d '{"name": "Latte", "price": 5.00}'
 
 # Order Service - Get all orders
-curl http://localhost:3001/api/order
+curl http://localhost:3067/order/api/order
 
 # Order Service - Request payment for an order
-curl -X PUT http://localhost:3001/api/order/pay/{order_id}
+curl -X PUT http://localhost:3067/order/api/order/pay/{order_id}
 
-# Payment Service - Process payment directly
-curl -X POST http://localhost:3002/api/payment \
+# Payment Service - Process payment
+curl -X POST http://localhost:3067/payment/api/payment \
   -H "Content-Type: application/json" \
   -d '{"orderId": "order_123", "amount": 5.00, "paymentMethod": "credit_card"}'
 
-# Payment Service - Get payment by ID
-curl http://localhost:3002/api/payment/{payment_id}
-
-# Payment Service - Get payments by order ID
-curl http://localhost:3002/api/payment/order/{order_id}
-
 # Health checks
-curl http://localhost:3001/health
-curl http://localhost:3002/health
+curl http://localhost:3067/order/health
+curl http://localhost:3067/payment/health
 ```
 
 ## Troubleshooting
@@ -504,7 +445,7 @@ curl http://localhost:3002/health
 
 - Ensure Docker container is running: `docker ps`
 - Check RabbitMQ logs: `docker logs rabbitmq`
-- Verify credentials in `.env` file
+- Verify credentials in `.env` files
 
 ### Redis Connection Failed
 
