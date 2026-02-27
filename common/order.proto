@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package order;
+
+service OrderService {
+  rpc CreateOrder (OrderRequest) returns (OrderResponse);
+}
+
+message OrderRequest {
+  string name = 1;
+  int32 price = 2;
+}
+
+enum OrderStatus {
+  PENDING = 0;
+  SUCCESS = 1;
+  FAILED = 2;
+}
+
+message OrderResponse {
+  string id = 1;
+  int32 price = 2;
+  string name = 3;
+  OrderStatus status = 4;
+  string created_at = 5;
+  string updated_at = 6;
+}
