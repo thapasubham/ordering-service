@@ -72,7 +72,8 @@ export class OrderController {
       const order: Order = await this.orderService.GetOrderByID(orderId);
       res.send(order).status(200);
     } catch (error) {
-      res.send(404).json({
+      console.log(error);
+      res.status(404).json({
         error: 'Not found.',
         message: error instanceof Error ? error.message : 'Unknown error',
       });
