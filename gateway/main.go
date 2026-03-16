@@ -10,18 +10,26 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/joho/godotenv"
 	"github.com/thapasubham/ordering-service/gateway/cmd"
+	"github.com/thapasubham/ordering-service/gateway/config"
 )
 
 func main() {
+	godotenv.Load()
+
 	signalChan := make(chan os.Signal, 1)
 
 	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
 
 	mux := http.NewServeMux()
+	mux.HandleFunc("/", cmd.Greet)
+	mux.HandleFunc("/mango", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, "Tuff mango alert")
+	})
 	mux.HandleFunc("/health", cmd.CheckServicesHealth)
-	mux.Handle("/order/", cmd.Proxy("http://host.docker.internal:3001", "/order"))
-	mux.Handle("/payment/", cmd.Proxy("http://host.docker.internal:3002", "/payment"))
+	mux.Handle("/order/", cmd.Proxy(config.OrderURL, "/order"))
+	mux.Handle("/payment/", cmd.Proxy(config.PaymentURL, "/payment"))
 
 	server := &http.Server{
 		Addr:    ":8080",

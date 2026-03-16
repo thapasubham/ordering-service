@@ -2,15 +2,19 @@ package cmd
 
 import (
 	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
 	"time"
+
+	"github.com/thapasubham/ordering-service/gateway/config"
 )
 
 // CheckServicesHealth writes JSON health status directly to ResponseWriter
 func CheckServicesHealth(w http.ResponseWriter, r *http.Request) {
 	services := map[string]string{
-		"order":   "http://host.docker.internal:3001/health",
-		"payment": "http://host.docker.internal:3002/health",
+		"order":   fmt.Sprintf("%s/health", config.OrderURL),
+		"payment": fmt.Sprintf("%s/health", config.PaymentURL),
 	}
 
 	statuses := make(map[string]string)
@@ -21,6 +25,19 @@ func CheckServicesHealth(w http.ResponseWriter, r *http.Request) {
 			Timeout: 2 * time.Second,
 		}
 		resp, err := client.Get(url)
+		if err != nil {
+			fmt.Println("Error:", err)
+			return
+		}
+		defer resp.Body.Close() // important to close
+
+		bodyBytes, err := io.ReadAll(resp.Body)
+		if err != nil {
+			fmt.Println("Read body error:", err)
+			return
+		}
+
+		fmt.Println(string(bodyBytes))
 		if err != nil || resp.StatusCode != http.StatusOK {
 			statuses[name] = "DOWN"
 			overall = "FAILED"
@@ -47,4 +64,8 @@ func CheckServicesHealth(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewEncoder(w).Encode(response); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+func Greet(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, "Hello World! %s", time.Now())
 }
