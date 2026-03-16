@@ -19,18 +19,16 @@ func main() {
 	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "Hello")
-	})
-	mux.Handle("/order/", cmd.Proxy("http://localhost:3001", "/order"))
-	mux.Handle("/payment/", cmd.Proxy("http://localhost:3002", "/payment"))
+	mux.HandleFunc("/health", cmd.CheckServicesHealth)
+	mux.Handle("/order/", cmd.Proxy("http://host.docker.internal:3001", "/order"))
+	mux.Handle("/payment/", cmd.Proxy("http://host.docker.internal:3002", "/payment"))
 
 	server := &http.Server{
-		Addr:    ":8004",
+		Addr:    ":8080",
 		Handler: cmd.LoggingMiddleware(mux),
 	}
 	go func() {
-		fmt.Print("Server running at localhost:8004")
+		fmt.Print("Server running at localhost:8080")
 		log.Fatal(server.ListenAndServe())
 	}()
 	sig := <-signalChan
