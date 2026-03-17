@@ -39,6 +39,16 @@ class MongoDBClient {
     const result = await this.collection.findOne({ _id: new ObjectId(id) });
     return result;
   }
+  async update<T extends Document>(id: string, value: Partial<T>) {
+    const result = await this.collection.updateOne(
+      { _id: new ObjectId(id) },
+      { $set: value }
+    );
+    if (result.modifiedCount === 0) {
+      throw new Error('Update failed or no changes made');
+    }
+    return result;
+  }
 }
 
 export const mongoDBclient = new MongoDBClient();

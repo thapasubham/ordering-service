@@ -57,7 +57,30 @@ export class OrderController {
       });
     }
   }
+  async UpdateOrder(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
 
+      if (!id) {
+        return res.status(400).json({
+          error: 'Bad request',
+          message: 'Order ID is required',
+        });
+      }
+      const order: Order = req.body;
+      if (!req.body) {
+        res.send('Empty body will not be accepted.').status(204);
+        return;
+      }
+      const result = await this.orderService.UpdateOrder(id, order);
+      res.send(result).status(200);
+    } catch (error) {
+      res.status(404).json({
+        error: 'Failed to update',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  }
   async GetOrderbyID(req: Request, res: Response) {
     try {
       const { orderId } = req.params;
@@ -73,7 +96,7 @@ export class OrderController {
       console.log(error);
       res.status(404).json({
         error: 'Not found.',
-        message: error instanceof Error ? error.message : 'Unknown error',
+        message: "Order doesn't exist",
       });
     }
   }

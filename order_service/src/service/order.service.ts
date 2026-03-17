@@ -5,8 +5,8 @@ import { Order } from '../types/order.types.js';
 export class OrderService {
   private orderRepo: OrderRepository;
 
-  constructor() {
-    this.orderRepo = new OrderRepository();
+  constructor(orderRepo: OrderRepository) {
+    this.orderRepo = orderRepo;
   }
   async GetOrderByID(id: string): Promise<Order> {
     const result = await this.orderRepo.GetOrderById(id);
@@ -42,12 +42,13 @@ export class OrderService {
 
     return { message: 'Payment request sent', orderId: order._id };
   }
-
+  async UpdateOrder(orderId: string, order: Partial<Order>) {
+    const result = await this.orderRepo.UpdateOrder(orderId, order);
+    return result;
+  }
   async UpdateOrderStatus(orderId: string, status: 'success' | 'failed') {
-    const order: Order = await this.orderRepo.GetOrderById(orderId);
-    order.Status = status;
-    order.updatedAt = new Date().toISOString();
-    await this.orderRepo.UpdateOrder(order);
+    await this.orderRepo.UpdateOrder(orderId, { Status: status });
+    const order = await this.orderRepo.GetOrderById(orderId);
     return order;
   }
 }

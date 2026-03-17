@@ -1,5 +1,5 @@
-import { Order } from '../types/order.types.js';
 import { mongoDBclient } from '../client/mongoDB.client.js';
+import { Order } from '../types/order.types.js';
 import { WithId } from 'mongodb';
 
 export class OrderRepository {
@@ -10,6 +10,7 @@ export class OrderRepository {
     }
     return result;
   }
+
   async GetOrder() {
     return await mongoDBclient.get();
   }
@@ -20,7 +21,9 @@ export class OrderRepository {
     order.updatedAt = new Date().toISOString();
     return await mongoDBclient.add<Order>(order);
   }
-  async UpdateOrder(order: Order) {
-    return await mongoDBclient.add<Order>(order);
+
+  async UpdateOrder(id: string, order: Partial<Order>) {
+    order.updatedAt = new Date().toISOString();
+    return await mongoDBclient.update<Order>(id, order);
   }
 }
