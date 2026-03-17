@@ -1,4 +1,4 @@
-import { Db, MongoClient, Document, Collection } from 'mongodb';
+import { Db, MongoClient, Document, Collection, ObjectId } from 'mongodb';
 import { config } from '../config/config.js';
 class MongoDBClient {
   private client!: MongoClient;
@@ -36,7 +36,7 @@ class MongoDBClient {
     return result;
   }
   async getById(id: string) {
-    const result = await this.collection.findOne({ id: id });
+    const result = await this.collection.findOne({ _id: new ObjectId(id) });
     return result;
   }
 }

@@ -34,13 +34,13 @@ export class OrderService {
 
     // Publish payment request to payment service
     await publish('pay.order', {
-      id: order.id,
+      _id: order._id,
       price: order.price,
       name: order.name,
       Status: order.Status,
     });
 
-    return { message: 'Payment request sent', orderId: order.id };
+    return { message: 'Payment request sent', orderId: order._id };
   }
 
   async UpdateOrderStatus(orderId: string, status: 'success' | 'failed') {

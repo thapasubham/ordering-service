@@ -1,9 +1,10 @@
 import { Order } from '../types/order.types.js';
 import { mongoDBclient } from '../client/mongoDB.client.js';
+import { WithId } from 'mongodb';
 
 export class OrderRepository {
   async GetOrderById(id: string) {
-    const result = await mongoDBclient.getById(id);
+    const result = (await mongoDBclient.getById(id)) as WithId<Order>;
     if (!result) {
       throw new Error('Order not found');
     }
