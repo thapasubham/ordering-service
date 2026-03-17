@@ -3,8 +3,8 @@ import dotenv from 'dotenv';
 import { orderRoute } from './route/order.route.js';
 import { rabbitclient } from './client/rabbitmq.client.js';
 import { consumers } from './rabbitmq/order.consume.js';
-import { redisClient } from './client/redis.client.js';
 import cors from 'cors';
+import { mongoDBclient } from './client/mongoDB.client.js';
 dotenv.config();
 
 async function startServer() {
@@ -17,8 +17,9 @@ async function startServer() {
     app.use(cors({ origin: API_GATEWAY_URL, methods: '*' }));
     try {
       await rabbitclient.connect();
-    } catch {
-      console.error('Failed to connect to RabbitMQ. Server will not start.');
+      await mongoDBclient.Connect();
+    } catch (err) {
+      console.error(err);
       process.exit(1);
     }
 
@@ -32,12 +33,12 @@ async function startServer() {
 
     app.get('/health', async (req: Request, res: Response) => {
       const rabbitHealth = await rabbitclient.checkConnection();
-      const redisHealth = await redisClient.healthCheck();
+      const mongoHealth = await mongoDBclient.health();
       res.status(200).json({
         status: 'ok',
         service: 'order-service',
         rabbitHealth: rabbitHealth ? 'Ok' : 'Degraded',
-        redisHealth: redisHealth ? 'Ok' : 'Degraded',
+        mongoHealth: mongoHealth ? 'Ok' : 'Degraded',
       });
     });
 

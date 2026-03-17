@@ -3,7 +3,6 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"time"
 
@@ -25,19 +24,7 @@ func CheckServicesHealth(w http.ResponseWriter, r *http.Request) {
 			Timeout: 2 * time.Second,
 		}
 		resp, err := client.Get(url)
-		if err != nil {
-			fmt.Println("Error:", err)
-			return
-		}
-		defer resp.Body.Close() // important to close
 
-		bodyBytes, err := io.ReadAll(resp.Body)
-		if err != nil {
-			fmt.Println("Read body error:", err)
-			return
-		}
-
-		fmt.Println(string(bodyBytes))
 		if err != nil || resp.StatusCode != http.StatusOK {
 			statuses[name] = "DOWN"
 			overall = "FAILED"
