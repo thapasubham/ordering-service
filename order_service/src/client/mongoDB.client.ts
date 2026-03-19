@@ -7,7 +7,7 @@ class MongoDBClient {
   async Connect() {
     try {
       this.client = new MongoClient(config.MONGODB_URL);
-      this.client
+      await this.client
         .connect()
         .then(() => console.log('Connection to mongodb successfull'));
       this.db = this.client.db('order');
@@ -17,6 +17,11 @@ class MongoDBClient {
         console.log('Failed to connect to mongodb', err.message);
       }
     }
+  }
+
+  async disconnect() {
+    await this.client.close();
+    console.log('MongoDB disconnected');
   }
   async health() {
     try {

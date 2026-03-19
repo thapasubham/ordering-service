@@ -67,12 +67,14 @@ async function startServer() {
     process.on('SIGTERM', async () => {
       console.log('SIGTERM received, shutting down gracefully');
       await rabbitclient.disconnect();
+      await mongoDBclient.disconnect();
       process.exit(0);
     });
 
     process.on('SIGINT', async () => {
       console.log('SIGINT received, shutting down gracefully');
       await rabbitclient.disconnect();
+      await mongoDBclient.disconnect();
       process.exit(0);
     });
   } catch (error) {
