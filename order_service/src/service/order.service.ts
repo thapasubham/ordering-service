@@ -19,7 +19,6 @@ export class OrderService {
 
   async CreateOrder(order: Order) {
     await this.orderRepo.CreateOrder(order);
-    await publish<Order>('create.order', order);
     return order;
   }
 

@@ -1,29 +1,5 @@
 import { OrderService } from '../service/order.service.js';
-import { Order } from '../types/order.types.js';
 import { consume } from './consume.js';
-
-async function startOrderConsumer() {
-  try {
-    await consume('create.order', async (msg) => {
-      let order: Order;
-
-      try {
-        order = JSON.parse(msg.toString());
-      } catch (error) {
-        throw new Error(`Invalid JSON in create.order message: ${error}`);
-      }
-
-      if (!order._id || !order.name || order.price === undefined) {
-        throw new Error(`Invalid order data: missing required fields`);
-      }
-
-      console.log(`Order message processed: ${order._id}`);
-    });
-  } catch (error) {
-    console.error('Failed to start create.order consumer:', error);
-    throw error;
-  }
-}
 
 async function startPaymentSuccessConsumer(orderService: OrderService) {
   try {
@@ -76,7 +52,6 @@ async function startPaymentFailedConsumer(orderService: OrderService) {
 export const startConsumers = async (orderService: OrderService) => {
   try {
     await Promise.all([
-      startOrderConsumer(),
       startPaymentSuccessConsumer(orderService),
       startPaymentFailedConsumer(orderService),
     ]);

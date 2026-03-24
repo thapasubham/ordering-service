@@ -8,6 +8,7 @@ import { mongoDBclient } from './client/mongoDB.client.js';
 import { OrderRepository } from './repository/order.repository.js';
 import { OrderService } from './service/order.service.js';
 import { OrderController } from './controller/order.controller.js';
+import { setupQueues } from './rabbitmq/registerqueue.js';
 
 dotenv.config();
 
@@ -21,7 +22,11 @@ async function startServer() {
     app.use(cors({ origin: API_GATEWAY_URL, methods: '*' }));
 
     try {
-      await rabbitclient.connect();
+      await rabbitclient.connect().then(async () => {
+        console.log('Registering Queues');
+        await setupQueues('payment.success');
+        await setupQueues('payment.failed');
+      });
       await mongoDBclient.Connect();
       console.log('Infrastructure connected');
     } catch (err) {
