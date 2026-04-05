@@ -1,7 +1,6 @@
 import { publish } from '../rabbitmq/publisher.js';
 import { PaymentRepository } from '../repository/payment.repository.js';
 import { Payment, PaymentRequest } from '../types/payment.types.js';
-import { nanoid } from 'nanoid';
 
 export class PaymentService {
   private paymentRepo: PaymentRepository;
@@ -12,36 +11,36 @@ export class PaymentService {
 
   async ProcessPayment(paymentRequest: PaymentRequest): Promise<Payment> {
     const payment: Payment = {
-      id: nanoid(),
       orderId: paymentRequest.orderId,
       amount: paymentRequest.amount,
       paymentMethod: paymentRequest.paymentMethod || 'credit_card',
       status: 'processing',
     };
 
-    await this.paymentRepo.CreatePayment(payment);
+    const result = await this.paymentRepo.CreatePayment(payment);
+    payment._id = result.insertedId;
 
     // Simulate payment processing
     const success = await this.simulatePaymentProcessing(payment);
 
     if (success) {
       payment.status = 'success';
-      await this.paymentRepo.UpdatePayment(payment);
+      await this.paymentRepo.UpdatePayment(payment._id!.toString(), payment);
 
       // Publish payment success event
       await publish('payment.success', {
         orderId: payment.orderId,
-        paymentId: payment.id,
+        paymentId: payment._id!.toString(),
         amount: payment.amount,
       });
     } else {
       payment.status = 'failed';
-      await this.paymentRepo.UpdatePayment(payment);
+      await this.paymentRepo.UpdatePayment(payment._id!.toString(), payment);
 
       // Publish payment failed event
       await publish('payment.failed', {
         orderId: payment.orderId,
-        paymentId: payment.id,
+        paymentId: payment._id!.toString(),
         amount: payment.amount,
       });
     }
