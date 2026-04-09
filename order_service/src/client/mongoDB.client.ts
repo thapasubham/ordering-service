@@ -7,15 +7,15 @@ class MongoDBClient {
   async Connect() {
     try {
       this.client = new MongoClient(config.MONGODB_URL);
-      await this.client
-        .connect()
-        .then(() => console.log('Connection to mongodb successfull'));
+      await this.client.connect();
+      console.log('Connection to mongodb successful');
       this.db = this.client.db('order');
       this.collection = this.db.collection('order');
     } catch (err: unknown) {
       if (err instanceof Error) {
-        console.log('Failed to connect to mongodb', err.message);
+        console.error('Failed to connect to mongodb:', err.message);
       }
+      throw err;
     }
   }
 

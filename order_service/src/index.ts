@@ -1,5 +1,7 @@
-import express, { Request, Response } from 'express';
 import dotenv from 'dotenv';
+dotenv.config();
+
+import express, { Request, Response } from 'express';
 import { createOrderRoute } from './route/order.route.js';
 import { rabbitclient } from './client/rabbitmq.client.js';
 import { startConsumers } from './rabbitmq/order.consume.js';
@@ -9,8 +11,6 @@ import { OrderRepository } from './repository/order.repository.js';
 import { OrderService } from './service/order.service.js';
 import { OrderController } from './controller/order.controller.js';
 import { setupQueues } from './rabbitmq/registerqueue.js';
-
-dotenv.config();
 
 async function startServer() {
   try {
@@ -34,7 +34,6 @@ async function startServer() {
       process.exit(1);
     }
 
-    // Dependency Injection Wiring
     const orderRepo = new OrderRepository();
     const orderService = new OrderService(orderRepo);
     const orderController = new OrderController(orderService);

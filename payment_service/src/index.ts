@@ -1,11 +1,12 @@
-import express, { Request, Response } from 'express';
 import dotenv from 'dotenv';
+dotenv.config();
+
+import express, { Request, Response } from 'express';
 import { paymentRoute } from './route/payment.route.js';
 import { rabbitclient } from './client/rabbitmq.client.js';
 import { consumers } from './rabbitmq/payment.consume.js';
 import { mongoDBclient } from './client/mongoDB.client.js';
 import cors from 'cors';
-dotenv.config();
 
 async function startServer() {
   try {
