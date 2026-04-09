@@ -28,8 +28,9 @@ func main() {
 		fmt.Fprint(w, "Tuff mango alert")
 	})
 	mux.HandleFunc("/health", cmd.CheckServicesHealth)
-	mux.Handle("/order/", cmd.Proxy(config.OrderURL, "/order"))
-	mux.Handle("/payment/", cmd.Proxy(config.PaymentURL, "/payment"))
+	mux.Handle("/order/", cmd.AuthMiddleware(cmd.Proxy(config.OrderURL, "/order")))
+	mux.Handle("/payment/", cmd.AuthMiddleware(cmd.Proxy(config.PaymentURL, "/payment")))
+	mux.Handle("/auth/", cmd.Proxy(config.UserAuthURL, "/auth"))
 
 	server := &http.Server{
 		Addr:    ":8080",
