@@ -9,6 +9,7 @@ var (
 	// URLs for other microservices
 	OrderURL   = getEnv("ORDER_URL", "http://localhost:3001")
 	PaymentURL = getEnv("PAYMENT_URL", "http://localhost:3002")
+	UserAuthURL = getEnv("USER_AUTH_URL", "http://localhost:3003")
 )
 
 // getEnv returns the environment variable or a default
