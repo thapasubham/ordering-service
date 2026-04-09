@@ -1,5 +1,7 @@
+import { ObjectId } from 'mongodb';
+
 export type Payment = {
-  id: string;
+  _id?: ObjectId;
   orderId: string;
   amount: number;
   status: 'pending' | 'processing' | 'success' | 'failed';

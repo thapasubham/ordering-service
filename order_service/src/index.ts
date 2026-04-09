@@ -1,11 +1,16 @@
-import express, { Request, Response } from 'express';
 import dotenv from 'dotenv';
-import { orderRoute } from './route/order.route.js';
-import { rabbitclient } from './client/rabbitmq.client.js';
-import { consumers } from './rabbitmq/order.consume.js';
-import { redisClient } from './client/redis.client.js';
-import cors from 'cors';
 dotenv.config();
+
+import express, { Request, Response } from 'express';
+import { createOrderRoute } from './route/order.route.js';
+import { rabbitclient } from './client/rabbitmq.client.js';
+import { startConsumers } from './rabbitmq/order.consume.js';
+import cors from 'cors';
+import { mongoDBclient } from './client/mongoDB.client.js';
+import { OrderRepository } from './repository/order.repository.js';
+import { OrderService } from './service/order.service.js';
+import { OrderController } from './controller/order.controller.js';
+import { setupQueues } from './rabbitmq/registerqueue.js';
 
 async function startServer() {
   try {
@@ -15,29 +20,40 @@ async function startServer() {
     app.use(express.json());
 
     app.use(cors({ origin: API_GATEWAY_URL, methods: '*' }));
+
     try {
-      await rabbitclient.connect();
-    } catch {
-      console.error('Failed to connect to RabbitMQ. Server will not start.');
+      await rabbitclient.connect().then(async () => {
+        console.log('Registering Queues');
+        await setupQueues('payment.success');
+        await setupQueues('payment.failed');
+      });
+      await mongoDBclient.Connect();
+      console.log('Infrastructure connected');
+    } catch (err) {
+      console.error('Failed to connect to infrastructure:', err);
       process.exit(1);
     }
 
+    const orderRepo = new OrderRepository();
+    const orderService = new OrderService(orderRepo);
+    const orderController = new OrderController(orderService);
+
     try {
-      await consumers();
+      await startConsumers(orderService);
     } catch (error) {
       console.error('Failed to start consumers:', error);
     }
 
-    app.use('/api/order', orderRoute);
+    app.use('/api/order', createOrderRoute(orderController));
 
     app.get('/health', async (req: Request, res: Response) => {
       const rabbitHealth = await rabbitclient.checkConnection();
-      const redisHealth = await redisClient.healthCheck();
+      const mongoHealth = await mongoDBclient.health();
       res.status(200).json({
         status: 'ok',
         service: 'order-service',
         rabbitHealth: rabbitHealth ? 'Ok' : 'Degraded',
-        redisHealth: redisHealth ? 'Ok' : 'Degraded',
+        mongoHealth: mongoHealth ? 'Ok' : 'Degraded',
       });
     });
 
@@ -55,12 +71,14 @@ async function startServer() {
     process.on('SIGTERM', async () => {
       console.log('SIGTERM received, shutting down gracefully');
       await rabbitclient.disconnect();
+      await mongoDBclient.disconnect();
       process.exit(0);
     });
 
     process.on('SIGINT', async () => {
       console.log('SIGINT received, shutting down gracefully');
       await rabbitclient.disconnect();
+      await mongoDBclient.disconnect();
       process.exit(0);
     });
   } catch (error) {

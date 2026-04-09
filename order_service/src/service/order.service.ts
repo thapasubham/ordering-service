@@ -5,8 +5,8 @@ import { Order } from '../types/order.types.js';
 export class OrderService {
   private orderRepo: OrderRepository;
 
-  constructor() {
-    this.orderRepo = new OrderRepository();
+  constructor(orderRepo: OrderRepository) {
+    this.orderRepo = orderRepo;
   }
   async GetOrderByID(id: string): Promise<Order> {
     const result = await this.orderRepo.GetOrderById(id);
@@ -19,7 +19,6 @@ export class OrderService {
 
   async CreateOrder(order: Order) {
     await this.orderRepo.CreateOrder(order);
-    await publish<Order>('create.order', order);
     return order;
   }
 
@@ -34,20 +33,21 @@ export class OrderService {
 
     // Publish payment request to payment service
     await publish('pay.order', {
-      id: order.id,
+      _id: order._id,
       price: order.price,
       name: order.name,
       Status: order.Status,
     });
 
-    return { message: 'Payment request sent', orderId: order.id };
+    return { message: 'Payment request sent', orderId: order._id };
   }
-
+  async UpdateOrder(orderId: string, order: Partial<Order>) {
+    const result = await this.orderRepo.UpdateOrder(orderId, order);
+    return result;
+  }
   async UpdateOrderStatus(orderId: string, status: 'success' | 'failed') {
-    const order: Order = await this.orderRepo.GetOrderById(orderId);
-    order.Status = status;
-    order.updatedAt = new Date().toISOString();
-    await this.orderRepo.UpdateOrder(order);
+    await this.orderRepo.UpdateOrder(orderId, { Status: status });
+    const order = await this.orderRepo.GetOrderById(orderId);
     return order;
   }
 }

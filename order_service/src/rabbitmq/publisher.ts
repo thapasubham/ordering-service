@@ -7,41 +7,6 @@ export async function publish<T>(
   try {
     const channel = await rabbitclient.getChannel();
 
-    // Assert queue with DLX settings (same as consumers use)
-    // This ensures consistency whether publisher or consumer starts first
-    const dlxName = `${queue_name}.dlx`;
-    const routingKey = `${queue_name}.dlq`;
-
-    try {
-      await channel.assertExchange(dlxName, 'direct', { durable: true });
-      await channel.assertQueue(`${queue_name}.dlq`, { durable: true });
-      await channel.bindQueue(`${queue_name}.dlq`, dlxName, routingKey);
-
-      await channel.assertQueue(queue_name, {
-        durable: true,
-        arguments: {
-          'x-dead-letter-exchange': dlxName,
-          'x-dead-letter-routing-key': routingKey,
-        },
-      });
-    } catch (error: unknown) {
-      // If queue already exists with same settings, that's fine
-      // If it exists with different settings, we'll get PRECONDITION_FAILED
-      // In that case, just try to send (queue exists, just different config)
-      if (
-        typeof error === 'object' &&
-        error !== null &&
-        'code' in error &&
-        error.code === 406
-      ) {
-        console.log(
-          `Queue ${queue_name} already exists with different settings, sending anyway`
-        );
-      } else {
-        throw error;
-      }
-    }
-
     const published = channel.sendToQueue(
       queue_name,
       Buffer.from(JSON.stringify(value)),

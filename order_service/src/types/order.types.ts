@@ -1,5 +1,7 @@
+import { ObjectId } from 'mongodb';
+
 export type Order = {
-  id: string;
+  _id: ObjectId;
   price: number;
   name: string;
   Status: 'pending' | 'success' | 'failed';

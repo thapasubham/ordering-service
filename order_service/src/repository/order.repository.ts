@@ -1,28 +1,29 @@
+import { mongoDBclient } from '../client/mongoDB.client.js';
 import { Order } from '../types/order.types.js';
-import { redisClient } from '../client/redis.client.js';
+import { WithId } from 'mongodb';
 
-const orderPrefix = 'order';
 export class OrderRepository {
   async GetOrderById(id: string) {
-    const result = await redisClient.getById(orderPrefix, id);
+    const result = (await mongoDBclient.getById(id)) as WithId<Order>;
     if (!result) {
       throw new Error('Order not found');
     }
     return result;
   }
+
   async GetOrder() {
-    return await redisClient.get(orderPrefix);
+    return await mongoDBclient.get();
   }
 
   async CreateOrder(order: Order) {
     order.Status = 'pending';
     order.createdAt = new Date().toISOString();
     order.updatedAt = new Date().toISOString();
-    const key = `${orderPrefix}:${order.id}`;
-    return await redisClient.add<Order>(key, order);
+    return await mongoDBclient.add<Order>(order);
   }
-  async UpdateOrder(order: Order) {
-    const key = `${orderPrefix}:${order.id}`;
-    return await redisClient.add<Order>(key, order);
+
+  async UpdateOrder(id: string, order: Partial<Order>) {
+    order.updatedAt = new Date().toISOString();
+    return await mongoDBclient.update<Order>(id, order);
   }
 }

@@ -1,4 +1,5 @@
 
+
 # Docker Compose configuration for Coffee Ordering Microservice
 # Copy this file to docker-compose.yaml and modify as needed
 
@@ -11,8 +12,8 @@ services:
       - "15672:15672"
     environment:
       # CHANGE IN PRODUCTION!
-      RABBITMQ_DEFAULT_USER: username
-      RABBITMQ_DEFAULT_PASS: password
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin123
     restart: unless-stopped
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
@@ -30,7 +31,7 @@ services:
     container_name: mongo
     restart: always
     ports:
-      - "27017:27017"
+      - "27020:27017"
     environment:
       MONGO_INITDB_ROOT_USERNAME: root
       MONGO_INITDB_ROOT_PASSWORD: example

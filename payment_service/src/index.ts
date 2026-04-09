@@ -1,11 +1,12 @@
-import express, { Request, Response } from 'express';
 import dotenv from 'dotenv';
+dotenv.config();
+
+import express, { Request, Response } from 'express';
 import { paymentRoute } from './route/payment.route.js';
 import { rabbitclient } from './client/rabbitmq.client.js';
 import { consumers } from './rabbitmq/payment.consume.js';
-import { redisClient } from './client/redis.client.js';
+import { mongoDBclient } from './client/mongoDB.client.js';
 import cors from 'cors';
-dotenv.config();
 
 async function startServer() {
   try {
@@ -18,8 +19,10 @@ async function startServer() {
 
     try {
       await rabbitclient.connect();
-    } catch {
-      console.error('Failed to connect to RabbitMQ. Server will not start.');
+      await mongoDBclient.Connect();
+      console.log('Infrastructure connected');
+    } catch (err) {
+      console.error('Failed to connect to infrastructure:', err);
       process.exit(1);
     }
 
@@ -33,12 +36,12 @@ async function startServer() {
 
     app.get('/health', async (req: Request, res: Response) => {
       const rabbitHealth = await rabbitclient.checkConnection();
-      const redisHealth = await redisClient.healthCheck();
+      const mongoHealth = await mongoDBclient.health();
       res.status(200).json({
         status: 'ok',
         service: 'payment-service',
         rabbitHealth: rabbitHealth ? 'Ok' : 'Degraded',
-        redisHealth: redisHealth ? 'Ok' : 'Degraded',
+        mongoHealth: mongoHealth ? 'Ok' : 'Degraded',
       });
     });
 
@@ -56,12 +59,14 @@ async function startServer() {
     process.on('SIGTERM', async () => {
       console.log('SIGTERM received, shutting down gracefully');
       await rabbitclient.disconnect();
+      await mongoDBclient.disconnect();
       process.exit(0);
     });
 
     process.on('SIGINT', async () => {
       console.log('SIGINT received, shutting down gracefully');
       await rabbitclient.disconnect();
+      await mongoDBclient.disconnect();
       process.exit(0);
     });
   } catch (error) {

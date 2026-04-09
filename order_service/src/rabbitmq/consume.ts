@@ -7,26 +7,6 @@ export async function consume(
   const channel = await rabbitclient.getChannel();
   await channel.prefetch(1);
 
-  await channel.assertExchange(`${queue_name}.dlx`, 'direct', {
-    durable: true,
-  });
-
-  await channel.assertQueue(`${queue_name}.dlq`, { durable: true });
-
-  await channel.bindQueue(
-    `${queue_name}.dlq`,
-    `${queue_name}.dlx`,
-    `${queue_name}.dlq`
-  );
-
-  await channel.assertQueue(queue_name, {
-    durable: true,
-    arguments: {
-      'x-dead-letter-exchange': `${queue_name}.dlx`,
-      'x-dead-letter-routing-key': `${queue_name}.dlq`,
-    },
-  });
-
   console.log('Consuming from queue:', queue_name);
 
   channel.consume(

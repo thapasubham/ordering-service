@@ -1,11 +1,10 @@
 import { Payment } from '../types/payment.types.js';
-import { redisClient } from '../client/redis.client.js';
-
-const paymentPrefix = 'payment';
+import { mongoDBclient } from '../client/mongoDB.client.js';
+import { WithId } from 'mongodb';
 
 export class PaymentRepository {
   async GetPaymentById(id: string) {
-    const result = await redisClient.getById(paymentPrefix, id);
+    const result = (await mongoDBclient.getById(id)) as WithId<Payment>;
     if (!result) {
       throw new Error('Payment not found');
     }
@@ -13,25 +12,22 @@ export class PaymentRepository {
   }
 
   async GetPayments() {
-    return await redisClient.get(paymentPrefix);
+    return (await mongoDBclient.get()) as WithId<Payment>[];
   }
 
   async GetPaymentsByOrderId(orderId: string) {
-    const payments = await redisClient.get(paymentPrefix);
-    return payments.filter((p: Payment) => p.orderId === orderId);
+    return (await mongoDBclient.get({ orderId })) as WithId<Payment>[];
   }
 
   async CreatePayment(payment: Payment) {
     payment.status = payment.status || 'pending';
     payment.createdAt = new Date().toISOString();
     payment.updatedAt = new Date().toISOString();
-    const key = `${paymentPrefix}:${payment.id}`;
-    return await redisClient.add<Payment>(key, payment);
+    return await mongoDBclient.add<Payment>(payment);
   }
 
-  async UpdatePayment(payment: Payment) {
+  async UpdatePayment(id: string, payment: Partial<Payment>) {
     payment.updatedAt = new Date().toISOString();
-    const key = `${paymentPrefix}:${payment.id}`;
-    return await redisClient.add<Payment>(key, payment);
+    return await mongoDBclient.update<Payment>(id, payment);
   }
 }
