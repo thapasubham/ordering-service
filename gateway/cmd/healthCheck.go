@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
@@ -12,47 +13,62 @@ import (
 // CheckServicesHealth writes JSON health status directly to ResponseWriter
 func CheckServicesHealth(w http.ResponseWriter, r *http.Request) {
 	services := map[string]string{
-		"order":   fmt.Sprintf("%s/health", config.OrderURL),
-		"payment": fmt.Sprintf("%s/health", config.PaymentURL),
+		"order":        fmt.Sprintf("%s/health", config.OrderURL),
+		"payment":      fmt.Sprintf("%s/health", config.PaymentURL),
+		"auth-service": fmt.Sprintf("%s/health", config.UserAuthURL),
 	}
 
-	statuses := make(map[string]string)
+	statuses := make(map[string]interface{})
 	overall := "OK"
 
-	for name, url := range services {
-		client := http.Client{
-			Timeout: 2 * time.Second,
-		}
-		resp, err := client.Get(url)
-
-		if err != nil || resp.StatusCode != http.StatusOK {
-			statuses[name] = "DOWN"
-			overall = "FAILED"
-		} else {
-			statuses[name] = "UP"
-		}
+	client := http.Client{
+		Timeout: 2 * time.Second,
 	}
 
-	// Prepare JSON response
+	for name, url := range services {
+		resp, err := client.Get(url)
+		if err != nil {
+			statuses[name] = "DOWN"
+			overall = "FAILED"
+			continue
+		}
+
+		body, readErr := io.ReadAll(resp.Body)
+		resp.Body.Close()
+
+		if readErr != nil || resp.StatusCode != http.StatusOK {
+			statuses[name] = "DOWN"
+			overall = "FAILED"
+			continue
+		}
+		var serviceResp map[string]interface{}
+		err = json.Unmarshal(body, &serviceResp)
+		if err != nil {
+			statuses[name] = map[string]string{
+				"status": "DOWN",
+			}
+			overall = "FAILED"
+			continue
+		}
+
+		statuses[name] = serviceResp
+	}
+
 	response := map[string]interface{}{
 		"services": statuses,
 		"overall":  overall,
 	}
 
-	// Set headers and status code
 	w.Header().Set("Content-Type", "application/json")
+
 	if overall == "FAILED" {
 		w.WriteHeader(http.StatusServiceUnavailable)
 	} else {
 		w.WriteHeader(http.StatusOK)
 	}
 
-	// Encode JSON and write to response
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
+	json.NewEncoder(w).Encode(response)
 }
-
 func Greet(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Hello World! %s", time.Now())
 }
