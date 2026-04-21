@@ -2,7 +2,8 @@ import { PaymentService } from '../service/payment.service.js';
 import { consume } from './consume.js';
 
 type OrderMessage = {
-  id: string;
+  _id?: string | { $oid: string };
+
   price: number;
   name?: string;
   Status?: string;
@@ -21,16 +22,16 @@ async function startPaymentRequestConsumer() {
         throw new Error(`Invalid JSON in pay.order message: ${error}`);
       }
 
-      if (!order.id || !order.price) {
+      if (!order._id || !order.price) {
         throw new Error(`Invalid order data: missing required fields`);
       }
 
       await paymentService.ProcessPayment({
-        orderId: order.id,
+        orderId: order._id.toString(),
         amount: order.price,
       });
 
-      console.log(`Payment processed for order: ${order.id}`);
+      console.log(`Payment processed for order: ${order._id}`);
     });
   } catch (error) {
     console.error('Failed to start pay.order consumer:', error);
