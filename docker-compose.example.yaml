@@ -1,7 +1,6 @@
-
-
-# Docker Compose configuration for Coffee Ordering Microservice
-# Copy this file to docker-compose.yaml and modify as needed
+# RabbitMQ + MongoDB for coffee_ordering (order, payment, user-auth).
+# Copy to docker-compose.yaml, then: docker compose up -d
+# MongoDB is on host port 27020 -> container 27017.
 
 services:
   rabbitmq:

@@ -1,363 +1,310 @@
 # Coffee Ordering Microservices
 
-A simple microservices-based coffee ordering system built with Node.js, TypeScript, Express, Go (Gateway), RabbitMQ, and Redis. The system consists of multiple independent services that communicate via message queues, with a central API Gateway for routing.
+A microservices-based coffee ordering system built with Node.js (TypeScript), Go (API Gateway), RabbitMQ, and MongoDB. Services communicate over HTTP through the gateway and asynchronously via RabbitMQ. Order and payment routes on the gateway require a JWT validated by the user-auth service.
 
 ## Architecture
 
-This is a true microservices architecture with an API Gateway as the entry point:
-
 ```
-          ┌──────────────────┐
-          │   API Gateway    │ (Port: 3067)
-          └────────┬─────────┘
-                   │
-         ┌─────────┴─────────┐
-         ▼                   ▼
-┌──────────────────┐   ┌──────────────────┐
-│  Order Service   │   │ Payment Service  │
-│   Port: 3001     │   │   Port: 3002     │
-└────────┬─────────┘   └────────┬─────────┘
-         │                      │
-         │ (publishes events)   │ (publishes events)
-         │                      │
-         └──────────┬───────────┘
-                    │
-         ┌──────────▼──────────┐
-         │      RabbitMQ       │  Message Queue
-         │   Port: 5672        │
-         └──────────┬──────────┘
-                    │
-         ┌──────────▼──────────┐
-         │       Redis         │  Shared Data Store
-         │   Port: 6379        │
-         └─────────────────────┘
+                    ┌──────────────────┐
+                    │   API Gateway    │  Go — default :8080
+                    │  (JWT on /order, │
+                    │   /payment)      │
+                    └────────┬─────────┘
+                             │
+       ┌─────────────────────┼─────────────────────┐
+       ▼                     ▼                     ▼
+┌──────────────┐    ┌──────────────┐      ┌──────────────┐
+│ Order        │    │ Payment      │      │ User Auth    │
+│ :3001        │    │ :3002        │      │ :3003        │
+└──────┬───────┘    └──────┬───────┘      └──────┬───────┘
+       │                   │                    │
+       │    MongoDB        │    MongoDB         │  MongoDB
+       └───────────────────┴────────────────────┘
+                             │
+                    ┌────────▼────────┐
+                    │    RabbitMQ     │
+                    │     :5672       │
+                    └─────────────────┘
 ```
 
 ### Services
 
 1. **API Gateway** (`gateway`)
-   - Entry point for all client requests
-   - Routes requests to Order and Payment services
-   - Handles path prefix stripping
-   - Logs requests via custom middleware
-   - Port: `3067`
+   - Entry point for client traffic (default **port 8080**).
+   - `GET /` — simple greeting.
+   - `GET /health` — aggregates health from order, payment, and user-auth.
+   - `/order/...` and `/payment/...` — reverse-proxied to the Node services with **Bearer JWT** verification via user-auth (`GET {USER_AUTH_URL}/api/verify`).
+   - `/auth/...` — proxied to user-auth **without** JWT middleware (used for login/register).
 
-2. **Order Service** (`order_service`)
-   - Creates and manages orders
-   - Publishes payment requests
-   - Consumes payment status updates
-   - Port: `3001`
+2. **Order Service** (`order_service`, port **3001**)
+   - Order API; persists orders in MongoDB (database `order`, collection `order` — see `order_service/src/client/mongoDB.client.ts`).
+   - Publishes to queue `pay.order` when payment is requested.
+   - Consumes `payment.success` and `payment.failed` to update order status.
 
-3. **Payment Service** (`payment_service`)
-   - Processes payment requests
-   - Publishes payment success/failure events
-   - Manages payment records
-   - Port: `3002`
+3. **Payment Service** (`payment_service`, port **3002**)
+   - Consumes `pay.order`, processes payment, publishes `payment.success` or `payment.failed`.
+   - Persists payment records in MongoDB (configurable DB/collection via env).
 
-### Message Flow
+4. **User Auth Service** (`user-auth`, port **3003**)
+   - `POST /api/register`, `POST /api/login`, `GET /api/verify` (used by the gateway).
+   - MongoDB for users; JWT signing via `JWT_SECRET`.
 
-```
-Order Creation:
-POST /order/api/order → API Gateway → Order Service → RabbitMQ (create.order) → Order Service (saves to Redis)
+### Message flow (RabbitMQ)
 
-Payment Request:
-PUT /order/api/order/pay/:id → API Gateway → Order Service → RabbitMQ (pay.order) → Payment Service
+- **Request payment:** Order service publishes to `pay.order` → Payment service consumes.
+- **Outcome:** Payment service publishes to `payment.success` or `payment.failed` → Order service consumes and updates status.
 
-Payment Processing:
-Payment Service → Processes payment → RabbitMQ (payment.success/failed) → Order Service (updates order status)
-```
+Queues use durable configuration with companion dead-letter queues (see `order_service/src/rabbitmq/registerqueue.ts` and payment publisher setup).
 
-**Note:** The Gateway maps `/order/` to Order Service and `/payment/` to Payment Service.
+**Gateway path mapping:** `/order/` is stripped and forwarded to the order service root (e.g. gateway `GET /order/health` → order service `GET /health`). Same pattern for `/payment/` and `/auth/`.
 
-## Tech Stack
+## Tech stack
 
-- **Runtime**: Node.js, Go (Gateway)
-- **Language**: TypeScript, Go
-- **Framework**: Express.js
-- **Message Queue**: RabbitMQ
-- **Database**: Redis
-- **Containerization**: Docker & Docker Compose
+- **Runtime:** Node.js, Go
+- **Languages:** TypeScript, Go
+- **HTTP:** Express.js (services), `net/http` + reverse proxy (gateway)
+- **Messaging:** RabbitMQ (amqplib)
+- **Data:** MongoDB (official driver)
+- **Infra:** Docker Compose (example file for RabbitMQ + MongoDB)
 
 ## Prerequisites
 
-- Node.js (v18 or higher)
-- Go (v1.25 or higher)
-- Docker & Docker Compose
-- npm or yarn
+- Node.js 18+
+- Go 1.25+ (see `gateway/go.mod`)
+- Docker and Docker Compose (for local RabbitMQ/MongoDB)
 
-## Getting Started
+## Getting started
 
-### 1. Clone the Repository
+### 1. Clone and enter the repo
 
 ```bash
-git clone <repository-url>
+git clone <your-repository-url>
 cd coffee_ordering
 ```
 
-### 2. Start Infrastructure Services
-
-**Option 1: Use existing docker-compose.yaml**
+### 2. Start infrastructure
 
 ```bash
-docker-compose up -d
-```
-
-**Option 2: Use example file (recommended for first-time setup)**
-
-```bash
-# Copy the example file
 cp docker-compose.example.yaml docker-compose.yaml
-
-# Review and modify docker-compose.yaml if needed, then start
-docker-compose up -d
+docker compose up -d
 ```
 
-This will start:
+From the example compose file you get:
 
-- **RabbitMQ** on `localhost:5672` (Management UI: `http://localhost:15672`)
-- **Redis** on `localhost:6379` (RedisInsight: `http://localhost:8001`)
+- **RabbitMQ** — AMQP `localhost:5672`, management UI `http://localhost:15672` (default user/pass in the example file — change for anything beyond local dev).
+- **MongoDB** — host port **`27020`** → container `27017` (root user/password in compose).
+- **mongo-express** — `http://localhost:8081` (optional DB UI).
 
-**Security Note:** Change default credentials in production environments!
+There is **no** Redis service in this project; persistence is MongoDB.
 
-### 3. Install Dependencies & Build
+### 3. Install dependencies
 
-**Node Services:**
+**Node services (order, payment, user-auth):**
 
 ```bash
-# Order Service
-cd order_service
-npm install
-cd ..
-
-# Payment Service
-cd payment_service
-npm install
-cd ..
+cd order_service && npm install && cd ..
+cd payment_service && npm install && cd ..
+cd user-auth && npm install && cd ..
 ```
 
-**API Gateway:**
+**Gateway:**
 
 ```bash
-cd gateway
-go mod download
+cd gateway && go mod download && cd ..
 ```
 
-### 4. Configure Environment Variables
+### 4. Environment variables
 
-Create `.env` files for Node services:
+**Gateway** — optional `.env` in `gateway/` (loaded by `godotenv`). Defaults in `gateway/config/config.go`:
 
-**Order Service** (`order_service/.env`):
+| Variable        | Description              | Default                 |
+| --------------- | ------------------------ | ----------------------- |
+| `ORDER_URL`     | Order service base URL   | `http://localhost:3001` |
+| `PAYMENT_URL`   | Payment service base URL | `http://localhost:3002` |
+| `USER_AUTH_URL` | User-auth base URL       | `http://localhost:3003` |
 
-```env
-RABBITMQ_URL=amqp://admin:admin123@localhost:5672
-REDIS_HOST=localhost
-REDIS_PORT=6379
-REDIS_PASSWORD=coolPasscode
-REDIS_USERNAME=default
-PORT=3001
-NODE_ENV=development
-```
+**Order service** (`order_service/.env`):
 
-**Payment Service** (`payment_service/.env`):
+| Variable       | Description                                                            |
+| -------------- | ---------------------------------------------------------------------- |
+| `RABBITMQ_URL` | AMQP URL                                                               |
+| `MONGODB_URL`  | MongoDB connection string                                              |
+| `PORT`         | HTTP port (default `3001`)                                             |
+| `NODE_ENV`     | e.g. `development`                                                     |
+| `API_GATEWAY`  | CORS allowed origin — set to gateway URL, e.g. `http://localhost:8080` |
 
-```env
-RABBITMQ_URL=amqp://admin:admin123@localhost:5672
-REDIS_HOST=localhost
-REDIS_PORT=6379
-REDIS_PASSWORD=coolPasscode
-REDIS_USERNAME=default
-PORT=3002
-NODE_ENV=development
-```
+**Payment service** (`payment_service/.env`):
 
-### 5. Run the Services
+| Variable             | Description                         |
+| -------------------- | ----------------------------------- |
+| `RABBITMQ_URL`       | AMQP URL                            |
+| `MONGODB_URL`        | MongoDB connection string           |
+| `MONGODB_DB`         | Database name                       |
+| `MONGODB_COLLECTION` | Collection name                     |
+| `PORT`               | HTTP port (default `3002`)          |
+| `API_GATEWAY`        | CORS — e.g. `http://localhost:8080` |
 
-Terminal 1 - API Gateway:
+**User-auth** (`user-auth/.env` — see `user-auth/.env.example`):
+
+| Variable      | Description                |
+| ------------- | -------------------------- |
+| `PORT`        | HTTP port (default `3003`) |
+| `MONGODB_URL` | MongoDB connection string  |
+| `JWT_SECRET`  | Secret for signing JWTs    |
+
+**CORS note:** Order and payment default `API_GATEWAY` in code to `http://localhost:3067` if unset, while the Go gateway listens on **8080**. For local runs, set `API_GATEWAY` on both services to `http://localhost:8080` so browser CORS matches the gateway.
+
+Example Mongo URL when using the example compose (host port 27020):
+
+`mongodb://root:example@localhost:27020`
+
+### 5. Run services
+
+Use four terminals (or your process manager of choice):
 
 ```bash
-cd gateway
-go run main.go
+# Terminal 1 — gateway (:8080)
+cd gateway && go run .
+
+# Terminal 2 — order (:3001)
+cd order_service && npm run dev
+
+# Terminal 3 — payment (:3002)
+cd payment_service && npm run dev
+
+# Terminal 4 — user-auth (:3003)
+cd user-auth && npm run dev
 ```
 
-Terminal 2 - Order Service:
+**URLs**
 
-```bash
-cd order_service
-npm run dev
-```
+- API Gateway: `http://localhost:8080`
+- Order (direct): `http://localhost:3001`
+- Payment (direct): `http://localhost:3002`
+- User-auth (direct): `http://localhost:3003`
 
-Terminal 3 - Payment Service:
+## API usage (via gateway)
 
-```bash
-cd payment_service
-npm run dev
-```
+Authenticated routes need: `Authorization: Bearer <access_token>` from `POST /auth/api/login` (after `POST /auth/api/register`).
 
-Services will run on:
+### Gateway health
 
-- API Gateway: `http://localhost:3067`
-- Order Service: `http://localhost:3001`
-- Payment Service: `http://localhost:3002`
+`GET http://localhost:8080/health`
 
-## API Endpoints (via Gateway)
+### Order (prefix `/order/`)
 
-All requests should be routed through the API Gateway on port `3067`.
+| Method | Path (via gateway)         | Auth |
+| ------ | -------------------------- | ---- |
+| GET    | `/order/health`            | Yes  |
+| GET    | `/order/api/order`         | Yes  |
+| POST   | `/order/api/order`         | Yes  |
+| PUT    | `/order/api/order/pay/:id` | Yes  |
 
-### Order Service (Prefix: `/order/`)
+### Payment (prefix `/payment/`)
 
-#### Health Check
+| Method | Path (via gateway)                    | Auth |
+| ------ | ------------------------------------- | ---- |
+| GET    | `/payment/health`                     | Yes  |
+| POST   | `/payment/api/payment`                | Yes  |
+| GET    | `/payment/api/payment`                | Yes  |
+| GET    | `/payment/api/payment/:id`            | Yes  |
+| GET    | `/payment/api/payment/order/:orderId` | Yes  |
 
-`GET /order/health`
+### Auth (prefix `/auth/` — no gateway JWT)
 
-#### Get All Orders
+| Method | Path (via gateway)   |
+| ------ | -------------------- |
+| GET    | `/auth/health`       |
+| POST   | `/auth/api/register` |
+| POST   | `/auth/api/login`    |
+| GET    | `/auth/api/verify`   |
 
-`GET /order/api/order`
-
-#### Create Order
-
-`POST /order/api/order`
-
-**Request Body:**
-
-```json
-{
-  "name": "Cappuccino",
-  "price": 4.5
-}
-```
-
-#### Request Payment
-
-`PUT /order/api/order/pay/:id`
-
-### Payment Service (Prefix: `/payment/`)
-
-#### Health Check
-
-`GET /payment/health`
-
-#### Process Payment
-
-`POST /payment/api/payment`
-
-## Project Structure
+## Project structure
 
 ```
 coffee_ordering/
-├── docker-compose.yaml          # Infrastructure services
-├── gateway/                     # API Gateway (Go)
-│   ├── cmd/                     # Proxy and logging logic
-│   ├── main.go                  # Entry point
-│   └── go.mod
-├── order_service/               # Order microservice (Node.js)
-│   ├── src/
-│   │   ├── client/              # Infrastructure clients
-│   │   ├── controller/          # Request handlers
-│   │   ├── rabbitmq/            # Message queue logic
-│   │   ├── repository/          # Data access layer
-│   │   ├── route/               # Route definitions
-│   │   ├── service/             # Business logic
-│   │   └── index.ts             # Entry point
-│   └── package.json
-├── payment_service/             # Payment microservice (Node.js)
-│   ├── src/
-│   │   ├── client/              # Infrastructure clients
-│   │   ├── controller/          # Request handlers
-│   │   ├── rabbitmq/            # Message queue logic
-│   │   ├── repository/          # Data access layer
-│   │   ├── route/               # Route definitions
-│   │   ├── service/             # Business logic
-│   │   └── index.ts             # Entry point
-│   └── package.json
+├── docker-compose.example.yaml   # RabbitMQ + MongoDB (+ mongo-express)
+├── gateway/
+│   ├── cmd/
+│   ├── config/
+│   └── main.go
+├── order_service/
+├── payment_service/
+├── user-auth/
+├── eslint.config.mts
 └── README.md
 ```
 
-## Features
+## Features (as implemented)
 
-- **Centralized Entry Point**: All requests routed through a single API Gateway
-- **Asynchronous Processing**: Orders processed via RabbitMQ message queue
-- **Dead Letter Queue (DLQ)**: Failed messages routed to DLQ for manual inspection
-- **Error Handling**: Global error handler with consistent error responses
-- **Input Validation**: Request validation before processing
-- **Message Persistence**: Messages survive broker restarts
-- **Graceful Shutdown**: Proper cleanup on application termination
-- **Health Checks**: Service health monitoring endpoints
-- **Type Safety**: TypeScript and Go implementation
+- API Gateway with path-based routing and JWT gate on order/payment paths
+- Async payment flow over RabbitMQ (`pay.order`, `payment.success`, `payment.failed`)
+- DLQ-style queue configuration for selected queues
+- Typed Node services (TypeScript) and typed Go gateway
+- Health endpoints per service plus aggregated gateway health
+- Graceful shutdown hooks where implemented (gateway, Node services)
 
-## Configuration
-
-### Environment Variables (Node Services)
-
-| Variable         | Description             | Default                                |
-| ---------------- | ----------------------- | -------------------------------------- |
-| `RABBITMQ_URL`   | RabbitMQ connection URL | `amqp://admin:admin123@localhost:5672` |
-| `REDIS_HOST`     | Redis host              | `localhost`                            |
-| `REDIS_PORT`     | Redis port              | `6379`                                 |
-| `REDIS_PASSWORD` | Redis password          | `coolPasscode`                         |
-| `REDIS_USERNAME` | Redis username          | `default`                              |
-| `PORT`           | Application port        | `3001` (Order), `3002` (Payment)       |
-| `NODE_ENV`       | Environment mode        | `development`                          |
-
-## Monitoring
-
-### RabbitMQ Management UI
-
-Access at `http://localhost:15672`
-
-- Monitor queues and messages
-- View message rates and consumers
-- Inspect Dead Letter Queues
-
-### RedisInsight
-
-Access at `http://localhost:8067`
-
-- View stored orders
-- Monitor Redis performance
-- Execute Redis commands
-
-## Testing
-
-Example API calls using cURL (through Gateway):
+## Linting (repository root)
 
 ```bash
-# Order Service - Create an order
-curl -X POST http://localhost:3067/order/api/order \
+npm install
+npm run lint
+```
+
+## Example curl (through gateway)
+
+Replace `TOKEN` with a JWT from login.
+
+```bash
+# Register
+curl -s -X POST http://localhost:8080/auth/api/register \
   -H "Content-Type: application/json" \
-  -d '{"name": "Latte", "price": 5.00}'
+  -d '{"email":"a@example.com","password":"secret","name":"Ada"}'
 
-# Order Service - Get all orders
-curl http://localhost:3067/order/api/order
-
-# Order Service - Request payment for an order
-curl -X PUT http://localhost:3067/order/api/order/pay/{order_id}
-
-# Payment Service - Process payment
-curl -X POST http://localhost:3067/payment/api/payment \
+# Login — use returned token
+curl -s -X POST http://localhost:8080/auth/api/login \
   -H "Content-Type: application/json" \
-  -d '{"orderId": "order_123", "amount": 5.00, "paymentMethod": "credit_card"}'
+  -d '{"email":"a@example.com","password":"secret"}'
 
-# Health checks
-curl http://localhost:3067/order/health
-curl http://localhost:3067/payment/health
+# Create order (authenticated)
+curl -s -X POST http://localhost:8080/order/api/order \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer TOKEN" \
+  -d '{"name":"Latte","price":5.00}'
+
+# List orders
+curl -s http://localhost:8080/order/api/order \
+  -H "Authorization: Bearer TOKEN"
+
+# Request payment for an order id
+curl -s -X PUT http://localhost:8080/order/api/order/pay/ORDER_ID \
+  -H "Authorization: Bearer TOKEN"
+
+# Gateway health (no JWT)
+curl -s http://localhost:8080/health
 ```
 
 ## Troubleshooting
 
-### RabbitMQ Connection Failed
+### RabbitMQ connection failed
 
-- Ensure Docker container is running: `docker ps`
-- Check RabbitMQ logs: `docker logs rabbitmq`
-- Verify credentials in `.env` files
+- `docker compose ps` and check logs for the RabbitMQ container.
+- Ensure `RABBITMQ_URL` in each Node service matches compose credentials and host (`localhost` when services run on the host).
 
-### Redis Connection Failed
+### MongoDB connection failed
 
-- Ensure Redis container is running: `docker ps`
-- Check Redis logs: `docker logs order-redis`
-- Verify password matches docker-compose.yaml
+- Default example mapping: **`localhost:27020`** on the host.
+- Use a connection string that includes auth if your compose defines `MONGO_INITDB_ROOT_USERNAME` / `PASSWORD`.
 
-### Messages Not Processing
+### 401 / 503 on `/order` or `/payment`
 
-- Check RabbitMQ Management UI for queue status
-- Verify consumers are running (check logs)
-- Inspect Dead Letter Queue for failed messages
+- 401: missing/invalid `Authorization: Bearer ...`.
+- 503: gateway cannot reach user-auth verify endpoint — ensure user-auth is running and `USER_AUTH_URL` is correct.
+
+### CORS errors from a browser
+
+- Set `API_GATEWAY` on order and payment to the exact gateway origin (e.g. `http://localhost:8080`).
+
+## Security note
+
+Change default RabbitMQ, MongoDB, and JWT secrets for any shared or production-like environment. Do not commit real `.env` files.
